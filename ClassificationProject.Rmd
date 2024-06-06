@@ -1,0 +1,709 @@
+---
+title: "Classification Project"
+author: "Matthew Paz"
+date: "2024-06-03"
+output:
+  pdf_document: default
+  html_document: default
+---
+```{r}
+setwd('/Users/mpaz/Desktop/capstone')
+```
+
+
+
+```{r}
+library(readr)
+cap_data <- read_csv('superstore_data.csv')
+
+head(cap_data)
+```
+
+```{r}
+dim(cap_data)
+```
+
+```{r}
+class(cap_data)
+```
+
+```{r}
+str(cap_data)
+```
+
+```{r}
+colSums(is.na(cap_data))
+```
+
+```{r}
+# Calculate the total number of rows
+totalRows <- nrow(cap_data)
+
+# Calculate the number of missing values in each column
+missing <- colSums(is.na(cap_data))
+
+# Calculate the percentage of missing values relative to total rows for each column
+(percentage_missing <- (colSums(is.na(cap_data)) / nrow(cap_data)) * 100)
+```
+```{r}
+library(dplyr)
+
+cap_data <- cap_data %>%
+  mutate(NumOfDependents = Kidhome + Teenhome)
+```
+
+
+```{r}
+#Dropping Columns
+cap_data <- subset(cap_data, select = -c(Id, Complain, Dt_Customer))
+```
+
+```{r}
+#Removing missing values
+cap_data <- na.omit(cap_data)
+```
+
+```{r}
+# Find duplicated rows
+(duplicated_rows <- sum(duplicated(cap_data)))
+```
+
+```{r}
+#remove duplicate rows across entire data frame 
+cap_data %>%
+  distinct(.keep_all = TRUE)
+```
+
+
+
+```{r}
+(data_types <- table(sapply(cap_data, class)))
+```
+
+```{r}
+library(ggplot2)
+
+# Convert the table to a data frame
+data_types_df <- as.data.frame(data_types)
+names(data_types_df) <- c("Data_Type", "Count")
+
+# Create a bar plot
+ggplot(data_types_df, aes(x = Data_Type, y = Count, fill = Data_Type)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Composition of Data Types in the Dataset: Numeric vs. Character Variables", x = "Data Type", y = "Count") +
+  theme_minimal() +
+  guides(fill = FALSE)
+```
+```{r}
+#Removing consumers who were born before 1900
+cap_data <- cap_data %>%
+  filter(Year_Birth > 1900)
+```
+
+```{r}
+ggplot(cap_data, aes(Year_Birth, Income)) +
+   geom_point(shape=1) 
+```
+
+```{r}
+#Checking outliers
+boxplot.stats(cap_data$Income)$out
+```
+
+```{r}
+#Visualizing Outliers
+ggplot(cap_data, aes("",Income)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Visualizing Outliers", x = "Income", caption = "Data Source: Kaggle") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_minimal()
+```
+
+```{r}
+max_income <- max(cap_data$Income)
+
+# Remove row with maximum income
+cap_data <- cap_data[cap_data$Income != max_income, ]
+```
+
+```{r}
+ggplot(cap_data, aes("",Income)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Visualizing Potential Outliers", x = "Income", caption = "Data Source: Kaggle") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme_minimal()
+```
+```{r}
+unique(cap_data$Marital_Status)
+unique(cap_data$Education)
+```
+
+```{r}
+#Removing the values YOLO and Absurd from the Marital Status
+cap_data <- filter(cap_data, !(Marital_Status %in% c("YOLO", "Absurd")))
+```
+
+```{r}
+cap_data <- cap_data %>%
+  mutate(Marital_Status = case_when(
+    Marital_Status %in% c("Alone", "Divorced", "Widow") ~ "Single",
+    TRUE ~ Marital_Status  # Keep other values unchanged
+  ))
+```
+
+```{r}
+#Updating Education
+cap_data <- cap_data %>%
+  mutate(Education = case_when(
+    Education %in% c("PhD", "2n Cycle", "Master") ~ "Postgraduate",
+    TRUE ~ as.character(Education)
+  ))
+```
+
+```{r}
+#Visualizing Average Salary based on education
+(avg_salary <- cap_data %>%
+  select(Education, Income) %>%
+   group_by(Education) %>%
+  summarize(Avg_Income = mean(Income)))
+```
+
+```{r}
+ggplot(avg_salary, aes(Education, Avg_Income)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black") +
+  labs(title = "Average Income by Education", x = "Education", y = "Income") +
+  theme_minimal()
+```
+
+```{r}
+summary(cap_data$Income)
+```
+
+```{r}
+#Measuring skewness
+library(moments)
+
+
+skewness(cap_data$Income)
+```
+
+```{r}
+options(scipen=999)
+
+mean_income <- mean(cap_data$Income)
+
+# Create a histogram with customized x-axis labels
+ggplot(cap_data, aes(x = Income)) +
+  geom_histogram(binwidth=2500, color = "black", fill= "lightblue") +
+  scale_x_continuous(breaks = seq(1730, 200000, by = 25000), 
+                     labels = scales::dollar_format(prefix = "$")) +
+  labs(title = "Distribution of Income", x = "Income", y = "Frequency") +
+  theme_minimal() +
+   geom_vline(xintercept = mean_income, color = "royalblue", linetype = "dashed") +
+  annotate("text", x = mean_income + 50000, y = 75, label = paste("Avg Income:", scales::dollar(mean_income)), 
+           color = "black", hjust = 0, vjust = 0, fontface = 'bold')
+
+```
+## 
+```{r}
+table(cap_data$Response)
+```
+
+```{r}
+original_table <- data.frame(Response = c(0, 1),
+                             Count = c(1877, 331))
+
+# Calculate total count
+total_count <- sum(original_table$Count)
+
+# Calculate percentages
+original_table$Percentage <- round((original_table$Count / total_count) * 100, 2)
+
+# New table with percentages
+percentage_table <- original_table
+percentage_table$Count <- NULL  # Remove the count column
+
+# Print the percentage table
+print(percentage_table)
+```
+
+```{r}
+# Bar plot
+ggplot(percentage_table, aes(x = factor(Response), y = Percentage, fill = factor(Response))) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = paste0(Percentage, "%")), 
+            position = position_stack(vjust = 0.5), 
+            size = 5, 
+            color = "white") +
+  labs(title = "Percentage of Responses from Previous Marketing Campaigns",
+       x = "Response",
+       y = "Percentage", ) +
+  theme_minimal() +
+  guides(fill = FALSE) + 
+  scale_x_discrete(labels = c("0" = "Did Not Accept Offer", "1" = "Accepted Offer"))
+```
+```{r}
+(avg_income_marital <- cap_data %>%
+  group_by(Marital_Status, Education) %>%
+  summarise(avg_income = mean(Income)))
+```
+
+```{r}
+#Selecting numeric datatypes only
+num_vals <- cap_data %>%
+  select_if(is.numeric)
+
+corr <- cor(num_vals)
+```
+
+```{r}
+library(ggcorrplot)
+
+ggcorrplot(corr, outline.col = "white", legend.title = "Correlation Values",  ggtheme = ggplot2::theme_minimal())
+
+```
+## Bi and Multivariate Analysis
+```{r}
+ggplot(cap_data, aes(Income, NumStorePurchases)) +
+  geom_point() +
+  theme_minimal()
+```
+
+```{r}
+ggplot(cap_data, aes(Income, MntWines)) +
+  geom_point() +
+  labs(y = "Amount of Wine") +
+  facet_wrap(~NumOfDependents) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(cap_data, aes(Income, MntWines)) +
+  geom_point() +
+  labs(y = "Amount of Wine") +
+  facet_wrap(~Marital_Status) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(cap_data, aes(Income, MntWines)) +
+  geom_point() +
+  labs(y = "Amount of Wine") +
+  facet_wrap(~Kidhome) +
+  theme_minimal()
+```
+
+```{r}
+ggplot(cap_data, aes(Income, MntWines)) +
+  geom_point() +
+  labs(y = "Amount of Wine") +
+  facet_wrap(~Teenhome) +
+  theme_minimal()
+```
+
+```{r}
+cap_data$Total_Products <- rowSums(cap_data[, c("MntWines", "MntFruits", "MntMeatProducts", 
+                                                "MntFishProducts", "MntSweetProducts", "MntGoldProds")])
+```
+
+```{r}
+ggplot(cap_data, aes(Income, Total_Products, color = Income)) +
+  geom_point() +
+  labs(y = "Total Products Sold") +
+  facet_wrap(~Education) +
+  theme_minimal() +
+  guides(color = FALSE)
+```
+
+```{r}
+(education_agg <- cap_data %>%
+  group_by(Education, NumOfDependents, Marital_Status) %>%
+  summarize(total_recency = sum(Recency),
+            mean_income = mean(Income),
+            mean_recency = mean(Recency),
+            totalGldPurchases = sum(MntGoldProds),
+            totalWebPurchases = sum(NumWebPurchases),
+            totalStorePurchases = sum(NumStorePurchases),
+            totalDiscountPurchases = sum(NumDealsPurchases),
+            .groups = 'drop') %>% 
+  arrange((mean_income)))
+```
+
+```{r}
+plot <- ggplot(education_agg, aes(x = NumOfDependents, y = mean_income, fill= NumOfDependents)) +
+  geom_bar(stat = 'identity', position = "dodge") +
+  labs(title = "Income Variation with Dependents by Marital Status",
+       x = "Number of Dependents",
+       y = "Average Income") +
+  facet_wrap(~Marital_Status) +
+  theme_minimal() + 
+  theme(legend.position="none")
+
+# Display the plot
+print(plot)
+```
+```{r}
+ggplot(education_agg, aes(x = NumOfDependents, y = mean_income, fill= NumOfDependents)) +
+  geom_bar(stat = 'identity', position = "dodge") +
+  labs(title = "Average Income by Number of Dependents",
+       x = "Number of Dependents",
+       y = "Average Income") +
+  facet_wrap(~Education) +
+  theme_minimal() + 
+  theme(legend.position="none")
+```
+```{r}
+# Convert 'Education' to factor
+cap_data$Education <- factor(cap_data$Education, levels = c("Basic", "Graduation", "Postgraduate"))
+```
+
+```{r}
+# Convert 'Marital_Status' to factor
+cap_data$Marital_Status <- factor(cap_data$Marital_Status, levels = c("Single","Married","Together"))
+```
+
+```{r}
+# Convert 'Response' to factor
+cap_data$Response <- as.factor(cap_data$Response)
+```
+
+```{r}
+library(ROSE)
+
+# Perform oversampling
+oversampled_data <- ovun.sample(Response ~ ., data = cap_data, method = "over", N = 3000)$data
+```
+
+```{r}
+# Before oversampling
+class_distribution_before <- table(cap_data$Response)
+df_before <- data.frame(Class = names(class_distribution_before), Count = as.vector(class_distribution_before), Dataset = "Before Oversampling")
+
+# After oversampling
+class_distribution_after <- table(oversampled_data$Response)
+df_after <- data.frame(Class = names(class_distribution_after), Count = as.vector(class_distribution_after), Dataset = "After Oversampling")
+
+# Combine dataframes
+combined_df <- rbind(df_before, df_after)
+
+# Plot
+ggplot(combined_df, aes(x = Class, y = Count, fill = Dataset)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Distribution of Classes Before and After Oversampling",
+       x = "Class",
+       y = "Count") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14)) +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(values = c("#619CFF", "#FFA861"))
+```
+## Modeling and Evaluation
+
+```{r}
+library(caret)
+library(e1071)
+
+set.seed(123)  # for reproducibility
+train_index_two <- createDataPartition(oversampled_data$Response, p = 0.8, list = FALSE)
+train_data_two <- oversampled_data[train_index_two, ]
+test_data_two <- oversampled_data[-train_index_two, ]
+
+# Train Naive Bayes model
+nb_model_two <- naiveBayes(Response ~ ., data = train_data_two)
+
+# Train Logistic Regression model
+logit_model_two <- glm(Response ~ ., data = train_data_two, family = "binomial")
+
+# Train SVM model
+svm_model_two <- svm(Response ~ ., data = train_data_two)
+
+
+# Make predictions
+nb_predictions_two <- predict(nb_model_two, newdata = test_data_two )
+#logit_predictions_two <- predict(logit_model_two , newdata = test_data_two , type = "response")
+svm_predictions_two <- predict(svm_model_two, newdata = test_data_two )
+
+# Evaluate performance
+nb_performance_two <- confusionMatrix(nb_predictions_two, test_data_two$Response)
+#logit_performance_two <- confusionMatrix(logit_predictions_two, test_data_two$Response)
+svm_performance_two <- confusionMatrix(svm_predictions_two, test_data_two$Response)
+```
+
+```{r}
+library(pROC) 
+logit_predictions_two <- predict(logit_model_two , newdata = test_data_two, type = "response")
+
+confusion_matrix_logit_two <- table(test_data_two$Response, logit_predictions_two > 0.5)
+accuracy_logit_two <- sum(diag(confusion_matrix_logit_two)) / sum(confusion_matrix_logit_two)
+precision_logit_two <- confusion_matrix_logit_two[2, 2] / sum(confusion_matrix_logit_two[, 2])
+recall_logit_two <- confusion_matrix_logit_two[2, 2] / sum(confusion_matrix_logit_two[2, ])
+f1_score_logit_two <- 2 * (precision_logit_two * recall_logit_two ) / (precision_logit_two + recall_logit_two )
+roc_auc_logit_two <- roc(test_data_two$Response, logit_predictions_two)$auc
+
+
+# Print performance metrics
+print(confusion_matrix_logit_two )
+print(paste("Accuracy:", accuracy_logit_two))
+print(paste("Precision:", precision_logit_two))
+print(paste("Recall:", recall_logit_two))
+print(paste("F1-Score:", f1_score_logit_two))
+print(paste("ROC-AUC:", roc_auc_logit_two))
+```
+```{r}
+library(pROC)
+roc_curve_logit_two <- roc(test_data_two$Response, logit_predictions_two)
+
+plot(roc_curve_logit_two, col = "red", lwd = 2, asp = NA)
+```
+```{r}
+print(nb_performance_two)
+```
+```{r}
+accuracy_nb_two <- nb_performance_two$overall["Accuracy"]
+```
+
+```{r}
+print(svm_performance_two)
+```
+
+```{r}
+(svm_accuracy_two <- svm_performance_two$overall["Accuracy"])
+```
+
+```{r}
+# Calculate ROC curve and AUC for Naive Bayes model
+roc_nb_two <- roc(test_data_two$Response, as.numeric(nb_predictions_two))
+auc_nb_two <- auc(roc_nb_two)
+
+print(paste("Naive Bayes AUC:", auc_nb_two))
+```
+
+```{r}
+plot(roc_nb_two, col = "blue", lwd = 2, asp = NA)
+```
+
+```{r}
+# Calculate ROC curve and AUC for SVM model
+roc_svm_two <- roc(test_data_two$Response, as.numeric(svm_predictions_two))
+auc_svm_two <- auc(roc_svm_two)
+
+print(paste("Support Vector Model  AUC:", auc_svm_two))
+```
+
+```{r}
+plot(roc_svm_two, col = "orange", lwd = 2, asp = NA)
+```
+
+```{r}
+# Plot ROC curves
+plot(roc_curve_logit_two, col = "blue", lwd = 2, main = "Comparison of ROC Curves", cex.main = 1.2, asp = NA)
+lines(roc_nb_two, col = "red", lwd = 2, lty = "dashed")
+lines(roc_svm_two, col = "orange", lwd = 2, lty = "dotted")
+
+# Adding AUC values to legend
+legend("bottomright", legend = c(
+  paste("Logistic Regression (AUC =", round(roc_auc_logit_two, 4), ")"),
+  paste("Naive Bayes (AUC =", round(auc_nb_two, 4), ")"),
+  paste("Support Vector Model (SVM) (AUC =", round(auc_svm_two, 4), ")")
+), col = c("blue", "red", "orange"), lwd = 2)
+```
+### Creating Basline Model
+```{r}
+# Determine majority class in training data
+majority_class <- names(sort(table(train_data_two$Response), decreasing = TRUE))[1]
+
+# Create predictions based on majority class
+majority_predictions <- rep(majority_class, nrow(train_data_two))
+
+# Evaluate accuracy of majority classifier
+(accuracy_majority <- mean(majority_predictions == oversampled_data$Response))
+```
+
+```{r}
+model_names <- c("Baseline", "Logistic Regression", "Naive Bayes", "Support Vector Machine")
+accuracies <- c(accuracy_majority, accuracy_logit_two, accuracy_nb_two, svm_accuracy_two)
+
+
+# Combine data into a dataframe
+df2 <- data.frame(Model = model_names, Accuracy = accuracies)
+```
+
+
+```{r}
+head(df2)
+```
+
+```{r}
+library(RColorBrewer)
+
+# Define a color palette
+my_palette <- brewer.pal(3, "Reds")
+
+# Plot
+ggplot(df2, aes(x = Model, y = Accuracy)) +
+  geom_bar(stat = "identity", fill = my_palette[1]) +
+  geom_hline(yintercept = accuracy_majority, linetype = "dashed", color = "red") +
+  geom_text(aes(label = round(Accuracy, 2)), vjust = -0.1) +
+    labs(title = "Comparison of Model Accuracies with Baseline",
+       subtitle = "Assessing Predictive Performance Across Classification Models",
+       y = "Accuracy", x = "Model") +
+  scale_y_continuous(breaks = seq(0, 1, by = 0.25)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(face = "bold", size = 14))
+
+```
+
+```{r}
+svm_performance_two$table
+```
+
+
+```{r}
+# Create a dataframe from the confusion matrix table
+conf_matrix_df_svm <- as.data.frame(svm_performance_two$table)
+
+
+conf_matrix_df_svm$Label <- ifelse(conf_matrix_df_svm$Prediction == conf_matrix_df_svm$Reference,
+                               ifelse(conf_matrix_df_svm$Prediction == "1", "TP", "TN"),
+                               ifelse(conf_matrix_df_svm$Prediction == "1", "FN", "FP"))
+
+# Plot heatmap
+ggplot(conf_matrix_df_svm, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = paste(Freq, " (", Label, ")", sep = "")), vjust = 1) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Confusion Matrix: Support Vector Machine",
+       x = "Prediction",
+       y = "Reference") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14)) +
+  guides(fill = FALSE)
+
+
+```
+
+```{r}
+nb_performance_two$table
+```
+
+
+```{r}
+# Create a dataframe from the confusion matrix table
+conf_matrix_df_nb <- as.data.frame(nb_performance_two$table)
+
+conf_matrix_df_nb$Label <- ifelse(conf_matrix_df_nb$Prediction == conf_matrix_df_nb$Reference,
+                               ifelse(conf_matrix_df_nb$Prediction == "1", "TP", "TN"),
+                               ifelse(conf_matrix_df_nb$Prediction == "1", "FN", "FP"))
+
+# Plot heatmap
+ggplot(conf_matrix_df_nb, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile(color = "white") +
+ geom_text(aes(label = paste(Freq, " (", Label, ")", sep = "")), vjust = 1) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Confusion Matrix: Naive Bayes",
+       x = "Prediction",
+       y = "Reference") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14)) +
+  guides(fill = FALSE)
+
+```
+```{r}
+#install.packages("data.table")
+library(data.table)
+
+confusion_matrix_logit_two <- table(test_data_two$Response, logit_predictions_two > 0.5)
+
+# Convert the table to a data frame for ggplot2
+confusion_matrix_df <- as.data.frame(confusion_matrix_logit_two)
+
+# Rename the columns for clarity
+colnames(confusion_matrix_df) <- c("Actual", "Predicted", "Count")
+
+# Convert the Actual and Predicted columns to factors if they are not already
+confusion_matrix_df$Actual <- as.factor(confusion_matrix_df$Actual)
+confusion_matrix_df$Predicted <- as.factor(confusion_matrix_df$Predicted)
+
+# Label the confusion matrix
+confusion_matrix_df$Label <- ifelse(confusion_matrix_df$Actual == "1" & confusion_matrix_df$Predicted == "TRUE", "TP",
+                              ifelse(confusion_matrix_df$Actual == "0" & confusion_matrix_df$Predicted == "FALSE", "TN",
+                              ifelse(confusion_matrix_df$Actual == "1" & confusion_matrix_df$Predicted == "FALSE", "FN", "FP")))
+
+```
+
+```{r}
+# Plot the confusion matrix
+ggplot(data = confusion_matrix_df, aes(x = Predicted, y = Actual, fill = Count)) +
+    geom_tile() +
+    geom_text(aes(label = paste0(Label, "\n", Count)), vjust = 1) +
+    scale_fill_gradient(low = "white", high = "steelblue") +
+    labs(x = "Predicted", y = "Actual", fill = "Count") +
+    ggtitle("Confusion Matrix: Logistic Regression Model") +
+    theme_minimal() +
+   theme(plot.title = element_text(face = "bold", size = 14)) +
+    guides(fill = FALSE)
+```
+
+
+```{r}
+(confusion_matrix_logit_two <- table(test_data_two$Response, logit_predictions_two > 0.5))
+```
+
+```{r}
+nb_performance_two$byClass
+```
+
+```{r}
+svm_performance_two$byClass
+```
+
+```{r}
+(precision_logit_two)
+```
+
+```{r}
+precision_scores <- c(0.6980198, 0.8479381, 0.7361478)
+models <- c("Logistic Regression", "SVM", "Naive Bayes")
+
+# Create a data frame
+precision_df <- data.frame(Model = models, Precision = precision_scores)
+```
+
+```{r}
+(ordered_precision <- precision_df %>%
+  group_by(Model)  %>%
+  arrange(desc(Precision)))
+```
+
+```{r}
+ordered_precision %>%
+  ggplot(aes(reorder(Model, Precision), Precision, fill = -Precision)) +
+  geom_col() +
+   labs(title = "Precision of Each Model",
+       subtitle = "Comparison of precision scores across different models",
+       x = "Model",
+       y = "Precision") +
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", size = 14)) +
+  coord_flip() +
+  scale_colour_gradient2() +
+  guides(fill="none")
+```
+
+### Conclusion:
+
+Maximizing precision ensures our model accurately identifies true positives (responders) while minimizing false positives (non-responders). This is crucial in marketing, where targeting the right customers impacts campaign success and cost-effectiveness.
+
+In this project, I evaluated several models for classifying customer responses to marketing campaigns. The Support Vector Machine (SVM) model achieved the highest precision score of 0.85, correctly identifying likely responders 85% of the time.
+
+This high precision makes the SVM model highly effective for this classification task. By using the SVM model, marketers can better target potential customers, leading to more successful and efficient campaigns.
+
+#### Summary:
+
+* Importance of Precision: High precision minimizes false positives, crucial for effective marketing.
+* Model Performance: The SVM model achieved the highest precision score of 0.85 among the evaluated models.
+* Implications: Implementing the SVM model can enhance the accuracy of marketing campaigns, improving their efficiency and effectiveness.
+
+
